@@ -8,7 +8,6 @@ import com.thistlewick.patterns.observer.EventBus;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Objects;
 import java.util.Set;
@@ -27,6 +26,9 @@ import java.util.Set;
  *       {@link #isOverdue()}, not stored (see {@code TaskStatus}).</li>
  *   <li><b>Publishes events:</b> lifecycle transitions publish
  *       domain events via the injected {@link EventBus}.</li>
+ *   <li><b>Rehydration:</b> repositories rebuild persisted tasks via
+ *       {@link #rehydrate} which sets the state directly without
+ *       firing events. This keeps {@code find} operations side-effect-free.</li>
  * </ul>
  */
 public class Task {
@@ -64,6 +66,28 @@ public class Task {
         this.tags = new LinkedHashSet<>();
     }
 
+    /**
+     * Rehydration factory — rebuilds a persisted {@code Task} exactly as
+     * stored, <b>without firing any events</b>.
+     *
+     * <p>This is the sole legitimate path for repositories to construct a
+     * Task with a non-{@code TODO} status. It bypasses {@link #start()}
+     * and {@link #complete()} to avoid spurious events during read
+     * operations.</p>
+     */
+    public static Task rehydrate(Long id,
+                                 User owner,
+                                 String title,
+                                 String description,
+                                 LocalDateTime dueDate,
+                                 Priority priority,
+                                 TaskStatus status,
+                                 EventBus eventBus) {
+        Task task = new Task(id, owner, title, description, dueDate, priority, eventBus);
+        task.status = Objects.requireNonNull(status, "status required");
+        return task;
+    }
+
     // ------------------------------------------------------------------
     // Lifecycle behavior
     // ------------------------------------------------------------------
@@ -87,9 +111,6 @@ public class Task {
                     "Task already completed (id=" + id + ")");
         }
         this.status = TaskStatus.DONE;
-        // Reminders are no longer meaningful — the task is done.
-        // (Event observers will do the actual DB cancellation; here we
-        //  only ensure the in-memory set is cleared on the domain side.)
         eventBus.publish(new TaskCompletedEvent(this, LocalDateTime.now()));
     }
 
@@ -159,9 +180,9 @@ public class Task {
     public TaskStatus getStatus()       { return status; }
     public Set<String> getTags()        { return Collections.unmodifiableSet(tags); }
 
-    public void renameTo(String newTitle)       { this.title = validateTitle(newTitle); }
-    public void changeDescription(String d)     { this.description = d == null ? "" : d.trim(); }
-    public void changePriority(Priority p)      { this.priority = Objects.requireNonNull(p); }
+    public void renameTo(String newTitle)   { this.title = validateTitle(newTitle); }
+    public void changeDescription(String d) { this.description = d == null ? "" : d.trim(); }
+    public void changePriority(Priority p)  { this.priority = Objects.requireNonNull(p); }
 
     // ------------------------------------------------------------------
     // Validation
