@@ -7,6 +7,8 @@ import java.util.Objects;
 /**
  * Published when a new {@link Task} is created and persisted.
  */
+//record = كلاس مضغوط لغرض واحد: حمل بيانات.
+    //بيعطيك كل خصائص ال class (setters,getters,final,hashcode,private,constructor...etc)
 public record TaskCreatedEvent(Task task, LocalDateTime occurredAt)
         implements DomainEvent {
 

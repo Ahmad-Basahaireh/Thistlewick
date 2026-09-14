@@ -3,7 +3,9 @@ package com.thistlewick.domain;
 import java.util.Objects;
 
 /**
- * {@code User} — an Aggregate Root representing a Thistlewick user.
+ *  User — an Aggregate Root in (DDD),
+ *  It acts as the primary object that controls a group of related objects.
+ *  representing a Thistlewick user.
  *
  * <h2>Design notes</h2>
  * <ul>
@@ -19,7 +21,7 @@ import java.util.Objects;
  * </ul>
  */
 public class User {
-
+    ////Long not long: null حتى يتم الحفظ في قاعدة البيانات
     private final Long id;       // null until persisted
     private String name;
     private Email email;
@@ -33,7 +35,7 @@ public class User {
     }
 
     /**
-     * Rehydrates a user from persistence. Used by repositories only.
+     * تعيد بناء مستخدم موجود. Used by repositories only.
      */
     public User(Long id, String name, Email email) {
         this.id = id;
@@ -50,7 +52,7 @@ public class User {
         this.name = validateName(newName);
     }
 
-    /** Changes the user's email. Guaranteed valid because Email is a VO. */
+    /** Changes the user's email. Guaranteed valid because Email is a Value Object. */
     public void changeEmail(Email newEmail) {
         this.email = Objects.requireNonNull(newEmail, "newEmail required");
     }
@@ -63,6 +65,7 @@ public class User {
         if (name == null || name.isBlank()) {
             throw new IllegalArgumentException("name must not be blank");
         }
+        //the name without spaces
         String trimmed = name.trim();
         if (trimmed.length() > 100) {
             throw new IllegalArgumentException("name must be ≤ 100 characters");
@@ -75,6 +78,7 @@ public class User {
     // ------------------------------------------------------------------
 
     public Long getId()      { return id; }
+    //we can delete this part
     public String getName()  { return name; }
     public Email getEmail()  { return email; }
 
@@ -89,15 +93,20 @@ public class User {
 
     @Override
     public boolean equals(Object o) {
+        //Same reference → immediately true.
         if (this == o) return true;
+        //Not User → false
         if (!(o instanceof User other)) return false;
+        //Both have an ID → compare using the ID.
         if (id != null && other.id != null) return id.equals(other.id);
+        //Otherwise (one or both lacking an ID) → compare using the email.
         return email.equals(other.email);
     }
 
     @Override
     public int hashCode() {
-        return id != null ? Objects.hash(id) : Objects.hash(email);
+//        return id != null ? Objects.hash(id) : Objects.hash(email);
+          return id != null ? id.hashCode() : email.hashCode();
     }
 
     @Override

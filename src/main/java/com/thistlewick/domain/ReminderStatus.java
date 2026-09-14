@@ -16,7 +16,7 @@ public enum ReminderStatus {
 
     /** Cancelled before firing (e.g. task completed or rescheduled). Terminal. */
     CANCELLED;
-
+    //بدنا نتاكد اذا هي canceled or fired ولا لا
     public boolean isTerminal() {
         return this != PENDING;
     }

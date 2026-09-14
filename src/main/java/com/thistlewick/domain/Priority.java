@@ -47,6 +47,7 @@ public enum Priority {
      *   MEDIUM.isAtLeast(MEDIUM) → true
      * </pre>
      */
+    //ترجع true إذا كانت هذه الأولوية مساوية أو أعلى من other.
     public boolean isAtLeast(Priority other) {
         return this.weight >= other.weight;
     }

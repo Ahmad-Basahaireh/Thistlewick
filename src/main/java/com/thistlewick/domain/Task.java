@@ -75,6 +75,9 @@ public class Task {
      * and {@link #complete()} to avoid spurious events during read
      * operations.</p>
      */
+
+    //يستدعي Constructor العادي
+    //ثم يعدّل status مباشرة
     public static Task rehydrate(Long id,
                                  User owner,
                                  String title,
@@ -94,10 +97,12 @@ public class Task {
 
     /** Moves the task from TODO to IN_PROGRESS. */
     public void start() {
+       //إذا الحالة ليست TODO، ارفض العملية
         if (status != TaskStatus.TODO) {
             throw new InvalidTaskStateException(
                     "Cannot start task in state " + status + " (id=" + id + ")");
         }
+        //تعديل الحالة: TODO → IN_PROGRESS
         this.status = TaskStatus.IN_PROGRESS;
     }
 
@@ -106,11 +111,14 @@ public class Task {
      * <p>Cancels all reminders and publishes {@code TaskCompletedEvent}.</p>
      */
     public void complete() {
+        //إذا كانت DONE، ارفض
         if (status == TaskStatus.DONE) {
             throw new InvalidTaskStateException(
                     "Task already completed (id=" + id + ")");
         }
+        //تعديل الحالة: → DONE
         this.status = TaskStatus.DONE;
+        //event publish
         eventBus.publish(new TaskCompletedEvent(this, LocalDateTime.now()));
     }
 
@@ -121,13 +129,18 @@ public class Task {
      * Task decoupled from the ReminderFactory.</p>
      */
     public void reschedule(LocalDateTime newDueDate) {
+        //رفض null
         Objects.requireNonNull(newDueDate, "newDueDate required");
+        //رفض تاريخ في الماضي
         if (newDueDate.isBefore(LocalDateTime.now())) {
             throw new InvalidTaskStateException(
                     "Cannot reschedule to a past date: " + newDueDate);
         }
+        //حفظ التاريخ القديم — لأن event رح يحتاجه
         LocalDateTime oldDue = this.dueDate;
+        //تعديل dueDate
         this.dueDate = newDueDate;
+        //إطلاق event مع (قديم + جديد + وقت)
         eventBus.publish(new TaskRescheduledEvent(
                 this, oldDue, newDueDate, LocalDateTime.now()));
     }
@@ -136,6 +149,7 @@ public class Task {
      * Publishes a {@code TaskCreatedEvent}. Called explicitly by the
      * service after persistence, so the event carries a valid id.
      */
+    //تطلق event "تم إنشاء المهمة
     public void publishCreated() {
         eventBus.publish(new TaskCreatedEvent(this, LocalDateTime.now()));
     }
@@ -168,7 +182,7 @@ public class Task {
     }
 
     // ------------------------------------------------------------------
-    // Accessors
+    // Accessors(getters)
     // ------------------------------------------------------------------
 
     public Long getId()                 { return id; }
@@ -178,6 +192,7 @@ public class Task {
     public LocalDateTime getDueDate()   { return dueDate; }
     public Priority getPriority()       { return priority; }
     public TaskStatus getStatus()       { return status; }
+                                        //نرجع نسخة محمية (read-only view)
     public Set<String> getTags()        { return Collections.unmodifiableSet(tags); }
 
     public void renameTo(String newTitle)   { this.title = validateTitle(newTitle); }

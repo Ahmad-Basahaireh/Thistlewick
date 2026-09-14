@@ -22,12 +22,12 @@ import java.util.Objects;
 public class Reminder {
 
     private final Long id;
-    private final Long taskId;          // reference by id, not object
-    private final LocalDateTime triggerTime;
+    private final Long taskId;                    // reference by id, not object
+    private final LocalDateTime triggerTime;      // وقت الإطلاق
     private final ReminderChannel channel;
 
-    private ReminderStatus status;
-    private LocalDateTime firedAt;
+    private ReminderStatus status;                // PENDING → FIRED/CANCELLED
+    private LocalDateTime firedAt;                // وقت الإطلاق الفعلي
 
     /**
      * Creates a new (not-yet-persisted) reminder in {@code PENDING} state.
@@ -69,7 +69,7 @@ public class Reminder {
      */
     public void markFired() {
         if (status == ReminderStatus.FIRED) {
-            return; // idempotent
+            return;   // idempotent
         }
         if (status == ReminderStatus.CANCELLED) {
             throw new InvalidTaskStateException(
@@ -81,7 +81,7 @@ public class Reminder {
 
     /**
      * Cancels the reminder. Idempotent: cancelling a fired reminder is
-     * allowed (it simply becomes CANCELLED), cancelling an already
+     * allowed (it simply becomes CANCELLED), and cancelling an already
      * cancelled reminder is a no-op.
      */
     public void cancel() {

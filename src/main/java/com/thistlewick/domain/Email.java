@@ -36,6 +36,7 @@ import java.util.regex.Pattern;
  * and predictable behavior. For a task manager this is the right call —
  * we prefer to be strict on write.</p>
  */
+//It cannot be inherited; this prevents manipulation.
 public final class Email {
 
     /**
@@ -52,13 +53,14 @@ public final class Email {
      * The pattern is compiled once (static final) — {@link Pattern} is
      * thread-safe and reusing it avoids recompilation per validation.
      */
+    // تعريف نمط الـ Regex المكون من شكل الإيميل (يحتوي على @ ودومين مثل .com)
     private static final Pattern EMAIL_PATTERN = Pattern.compile(
             "^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$"
     );
 
     /** RFC 5321 hard limit for an email address. */
     private static final int MAX_LENGTH = 254;
-
+    // المتغير الذي يخزن قيمة الإيميل النصية النص الحقيقي
     private final String value;
 
     /**
@@ -67,11 +69,12 @@ public final class Email {
      * @param raw the raw input; may be null → rejected
      * @throws InvalidEmailException if null, blank, too long, or malformed
      */
+    // الـ Constructor
     public Email(String raw) {
         if (raw == null) {
             throw new InvalidEmailException("Email must not be null");
         }
-
+        //trim(): إزالة المسافات من البداية والنهاية.
         String normalized = raw.trim().toLowerCase();
 
         if (normalized.isEmpty()) {
@@ -81,28 +84,29 @@ public final class Email {
             throw new InvalidEmailException(
                     "Email exceeds " + MAX_LENGTH + " characters", raw);
         }
+        // رفع خطأ إذا كان الشكل غير صحيح
         if (!EMAIL_PATTERN.matcher(normalized).matches()) {
             throw new InvalidEmailException(
                     "Email does not match the expected format: '" + raw + "'", raw);
         }
-
+        //التخزين: إذا نجح كل شي، نخزن القيمة في value.
         this.value = normalized;
     }
 
-    /** @return the normalized (trimmed, lower-cased) email string. */
+    /** @return the normalized (trimmed, lower-cased) email string.(getter) */
     public String value() {
         return value;
     }
 
     /**
-     * @return the local part (before {@code @}).
+     * @return the local part (before  @).ex(ahmad.bassam2001)
      * Useful for greetings, logging, or building display names.
      */
     public String localPart() {
         return value.substring(0, value.indexOf('@'));
     }
 
-    /** @return the domain (after {@code @}). */
+    /** @return the domain (after @).ex(gmail.com) */
     public String domain() {
         return value.substring(value.indexOf('@') + 1);
     }
@@ -114,6 +118,8 @@ public final class Email {
         return value.equals(other.value);
     }
 
+    //ترجع hashCode للكائن.
+    //ليش مهمة؟ لكي تقدر تستخدم البريد الإلكتروني كمفتاح في HashMap
     @Override
     public int hashCode() {
         return Objects.hash(value);
@@ -123,4 +129,5 @@ public final class Email {
     public String toString() {
         return value;
     }
+
 }

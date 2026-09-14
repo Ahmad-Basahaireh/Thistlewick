@@ -2,13 +2,16 @@ package com.thistlewick.web.cli;
 
 import com.thistlewick.domain.Email;
 import com.thistlewick.domain.Priority;
+import com.thistlewick.domain.Reminder;
 import com.thistlewick.domain.Task;
 import com.thistlewick.domain.User;
 import com.thistlewick.patterns.builder.TaskBuilder;
 import com.thistlewick.patterns.observer.EventBus;
 import com.thistlewick.patterns.observer.LoggingObserver;
+import com.thistlewick.reminder.ReminderDispatcher;
+import com.thistlewick.reminder.ReminderFactory;
 import com.thistlewick.repository.Repository;
-import com.thistlewick.repository.cache.InMemoryCacheRepository;
+import com.thistlewick.repository.jdbc.JdbcReminderRepository;
 import com.thistlewick.repository.jdbc.JdbcTaskRepository;
 import com.thistlewick.repository.jdbc.JdbcUserRepository;
 import com.thistlewick.service.ReportService;
@@ -21,11 +24,7 @@ import java.util.Map;
 import java.util.Scanner;
 
 /**
- * Terminal CLI — the application's presentation layer.
- *
- * <p>Owns wiring (composition root): builds the repositories,
- * registers observers, and delegates to services. No business logic
- * lives here.</p>
+ * Terminal CLI — presentation layer. Owns wiring (composition root).
  */
 public class CliApplication {
 
@@ -33,6 +32,7 @@ public class CliApplication {
     private final UserService userService;
     private final TaskService taskService;
     private final ReportService reportService;
+    private final ReminderDispatcher dispatcher;
 
     public CliApplication() {
         // --- Composition root ---
@@ -48,9 +48,19 @@ public class CliApplication {
 
         Repository<User, Long> userRepo = new JdbcUserRepository();
         Repository<Task, Long> taskRepo = new JdbcTaskRepository(eventBus);
+        Repository<Reminder, Long> reminderRepo = new JdbcReminderRepository();
 
-        this.userService  = new UserService(userRepo);
-        this.taskService  = new TaskService(taskRepo, eventBus);
+        ReminderFactory reminderFactory = new ReminderFactory();
+        this.dispatcher = new ReminderDispatcher(reminderFactory, reminderRepo);
+
+        // Route lifecycle signals to the dispatcher.
+        eventBus.register(com.thistlewick.domain.event.TaskOverdueEvent.class,
+                dispatcher::onLifecycleSignal);
+        eventBus.register(com.thistlewick.domain.event.TaskCompletedEvent.class,
+                dispatcher::onLifecycleSignal);
+
+        this.userService   = new UserService(userRepo);
+        this.taskService   = new TaskService(taskRepo, eventBus);
         this.reportService = new ReportService(taskRepo);
     }
 
@@ -78,16 +88,15 @@ public class CliApplication {
         System.out.println("Bye.");
     }
 
-    // ------------------------------------------------------------------
-    // Commands
-    // ------------------------------------------------------------------
+    public void shutdown() {
+        dispatcher.shutdown();
+    }
 
     private void createUser() {
         System.out.print("Name:  ");
         String name = scanner.nextLine();
         System.out.print("Email: ");
         String emailStr = scanner.nextLine();
-
         User u = userService.register(name, new Email(emailStr));
         MenuRenderer.printOk("User created: id=" + u.getId());
     }
@@ -99,7 +108,7 @@ public class CliApplication {
             return;
         }
         users.forEach(u -> System.out.printf("  [%d] %s <%s>%n",
-                u.getId(), u.getName(), u.getEmail()));
+                u.getId(), u.getName(), u.getEmail().value()));   // ← value() بدل toString
 
         System.out.print("Owner id: ");
         long ownerId = Long.parseLong(scanner.nextLine().trim());
@@ -107,21 +116,41 @@ public class CliApplication {
 
         System.out.print("Title: ");
         String title = scanner.nextLine();
+
+        System.out.print("Description (optional): ");
+        String description = scanner.nextLine();
+
         System.out.print("Due (YYYY-MM-DDTHH:MM): ");
         LocalDateTime due = LocalDateTime.parse(scanner.nextLine().trim());
+
         System.out.print("Priority (LOW/MEDIUM/HIGH): ");
         Priority p = Priority.valueOf(scanner.nextLine().trim().toUpperCase());
+
+        System.out.print("Tags (comma-separated, optional): ");
+        String tagsLine = scanner.nextLine();
 
         Task task = new TaskBuilder()
                 .owner(owner)
                 .title(title)
+                .description(description)
                 .dueDate(due)
                 .priority(p)
-                .eventBus(new EventBus())     // CLI-side bus for task events
+                .eventBus(new EventBus())
                 .build();
 
+        // أضف الـ tags
+        if (!tagsLine.isBlank()) {
+            for (String tag : tagsLine.split(",")) {
+                String trimmed = tag.trim();
+                if (!trimmed.isEmpty()) {
+                    task.addTag(trimmed);
+                }
+            }
+        }
+
         Task saved = taskService.createTask(task);
-        MenuRenderer.printOk("Task created: id=" + saved.getId());
+        MenuRenderer.printOk("Task created: id=" + saved.getId()
+                + " (description and tags saved)");
     }
 
     private void listTasks() {

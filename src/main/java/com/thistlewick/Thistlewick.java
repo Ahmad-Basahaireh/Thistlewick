@@ -16,7 +16,13 @@ public final class Thistlewick {
         // 1. Ensure the schema exists (idempotent).
         SchemaInitializer.initialize();
 
-        // 2. Launch the CLI.
-        new CliApplication().run();
+        // 2. Launch the CLI. The composition root inside CliApplication
+        //    wires repositories, observers, and the reminder dispatcher.
+        CliApplication app = new CliApplication();
+        try {
+            app.run();
+        } finally {
+            app.shutdown();
+        }
     }
 }
